@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>カナつなぎパズル</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>カナつなぎパズル</h1>
+    <div id="status">
+      <span class="stat">スコア <b id="score">0</b></span>
+      <span class="stat">じかん <b id="timer">3:00</b></span>
+      <span class="stat">かんせい <b id="words-done">0/10</b></span>
+    </div>
+  </header>
+  <div id="chain-info" class="hidden"></div>
+
+  <main>
+    <div id="board-wrap">
+      <div id="board"></div>
+      <div id="toast"></div>
+    </div>
+
+    <div id="side">
+      <div id="palette-area">
+        <div id="slots-area">
+          <h2>回答セット <span class="sub">（盤面の開始マス→終わりマスをクリックで一気に置く）</span>
+            <button id="queue-clear-btn">ぜんぶ外す</button>
+          </h2>
+          <div id="slots"></div>
+        </div>
+        <h2>つかう文字（数字はのこり枚数）</h2>
+        <div id="palette"></div>
+        <div id="controls">
+          <label id="gen-label">なまえの範囲
+            <select id="gen-select"></select>
+          </label>
+          <button id="new-btn">新しい問題</button>
+          <button id="giveup-btn">こたえを見る</button>
+          <button id="help-btn">あそびかた</button>
+        </div>
+      </div>
+      <div id="log-area">
+        <h2>かんせいした なまえ</h2>
+        <ul id="log"></ul>
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer">
+    <p>本サイトは非公式・非商用のファンコンテンツであり、任天堂・クリーチャーズ・ゲームフリーク（株式会社ポケモン）とは一切関係ありません。Pokémon（ポケモン）およびポケモンのキャラクター名は任天堂の商標です。ポケモンの名前・図鑑説明文・画像などの著作権は上記権利者に帰属します。権利者からの要請があれば速やかに対応します。</p>
+    <p>データ・画像は <a href="https://pokeapi.co/" target="_blank" rel="noopener">PokéAPI</a>（BSD-3-Clause）を利用しています。本サイトのソースコードは MIT License です。詳細はリポジトリの LICENSE / THIRD_PARTY_NOTICES.md を参照してください。</p>
+  </footer>
+</div>
+
+<div id="help-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2>あそびかた</h2>
+    <ul>
+      <li><b>3分いない</b>に、盤面にかくれた<b>10この名前</b>をぜんぶ完成させるパズルです。タテ・ヨコの並びがすべてポケモンの名前になればクリア！</li>
+      <li>パレットから文字を選ぶと「回答セット」に順番にたまります。まとめてセットしてOK！</li>
+      <li>盤面の「開始マス」→「終わりマス」をクリックすると、その区間にセットの文字が順に置かれます（埋まっているマスは飛ばす・逆順もOK・1文字だけならワンクリック）。</li>
+      <li>セットの文字はクリックで選んで、べつの文字をクリックすると入れ替えできます。同じ文字を2回クリックでパレットに戻り、文字を選んでからセットの空き部分をクリックすると末尾に移せます。</li>
+      <li>名前が成立してから<b>20秒いない</b>に次の名前を成立させると「2連鎖！3連鎖！…」。正解の表示中は猶予タイマーが止まります。連鎖が続くほど得点アップ！</li>
+      <li>なにもセットしていない状態であきマスをタップすると、そのマスを通る名前のヒント（図鑑の説明文）が見られます。</li>
+      <li>時間切れになると答えが表示され、答えられなかったところが赤く強調されます。「つぎの問題へ」を押すと新しい問題が始まります。</li>
+      <li>並びが埋まったのに名前になっていないと赤く表示。盤面に自分で置いた文字はクリックで外せます（うすい色の最初からある文字は外せません）。</li>
+      <li>パレットの文字で必ず完成できる答えが用意されています。困ったら「こたえを見る」。「なまえの範囲」で世代を絞ることもできます。</li>
+    </ul>
+    <button class="close-btn">とじる</button>
+  </div>
+</div>
+
+<div id="hint-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2>ヒント</h2>
+    <div id="hint-body"></div>
+    <button class="close-btn">とじる</button>
+  </div>
+</div>
+
+<div id="word-popup" class="modal hidden">
+  <div id="word-popup-box"></div>
+</div>
+
+<div id="result-modal" class="modal hidden">
+  <div class="modal-box">
+    <h2 id="result-title">パズルかんせい！</h2>
+    <p class="result-score"><b id="result-score">0</b> 点</p>
+    <p id="result-detail"></p>
+    <button id="result-close-btn" class="secondary">盤面を見る</button>
+    <button id="result-restart-btn">つぎの問題へ</button>
+  </div>
+</div>
+
+<script src="names.js"></script>
+<script src="hints.js"></script>
+<script src="generator.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
