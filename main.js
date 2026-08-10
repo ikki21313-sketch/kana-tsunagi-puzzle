@@ -1,14 +1,20 @@
 // カナつなぎパズル — 先に「答え」の盤面を生成してから穴埋め問題として出題する
 // 依存なし。names.js / hints.js / generator.js を使う。
 //
-// ルール: 10個の名前(回答)でできた盤面を3分いないに完成させる。
-// 名前成立から10秒いないに次を成立させると連鎖(正解表示中は猶予停止)。
+// ルール: 開始画面で選んだ数の名前でできた盤面を、制限時間いないに完成させる。
+// 名前成立から20秒いないに次を成立させると連鎖(正解表示中は猶予停止)。
 
-const MAX_CELLS = 70;
-const WORD_COUNT = 10;   // 回答(名前)の数は固定
 const GIVEN_RATIO = 0.22; // はじめから見えている文字の割合
-const TIME_LIMIT = 180;  // 制限時間(秒)
-const CHAIN_WINDOW = 20; // 連鎖の猶予(秒)
+const CHAIN_WINDOW = 20;  // 連鎖の猶予(秒)
+
+// 難易度(開始画面で選択)
+const DIFFS = [
+  { words: 10, time: 180, label: '10匹 / 3分' },
+  { words: 20, time: 300, label: '20匹 / 5分' },
+  { words: 30, time: 480, label: '30匹 / 8分' },
+];
+let wordCount = DIFFS[0].words;
+let timeLimit = DIFFS[0].time;
 
 // 世代ごとの図鑑番号の上限（「第n世代まで」の累積フィルタに使う）
 const GEN_MAX = [151, 251, 386, 493, 649, 721, 809, 905, 1025];
@@ -35,7 +41,9 @@ let runsAt;          // "r,c" -> そのマスを含む run 番号の配列
 let queue;           // 回答セット: 置く順番に並んだ文字の列(先頭から置かれる)
 let selectedTile;    // 入れ替え用に選択中の文字の位置 | null
 let startKey;        // 区間置きの開始マス(選択中のみ)
+let lockedKeys;      // 正解した並びのマス(操作不能)
 let scoredRuns, score, foundLog, finished;
+let started = false; // ゲーム開始前は false(開始画面を表示)
 let timeLeft;        // のこり時間(秒)
 let chainCount;      // いまの連鎖数(0 = 連鎖なし)
 let chainRemaining;  // 次の連鎖までの猶予(秒)
@@ -55,7 +63,7 @@ const toastEl = document.getElementById('toast');
 let cellEls; // "r,c" -> 要素
 
 function init() {
-  puzzle = generatePuzzle(activeNames, MAX_CELLS, WORD_COUNT);
+  puzzle = generatePuzzle(activeNames, wordCount * 7, wordCount);
   answer = new Map(puzzle.cells.map(cl => [cl.r + ',' + cl.c, cl.ch]));
 
   runsAt = new Map();
@@ -97,11 +105,12 @@ function init() {
   queue = [];
   selectedTile = null;
   startKey = null;
+  lockedKeys = new Set();
   scoredRuns = new Set();
   score = 0;
   foundLog = [];
   finished = false;
-  timeLeft = TIME_LIMIT;
+  timeLeft = timeLimit;
   chainCount = 0;
   chainRemaining = 0;
   maxChainSeen = 0;
@@ -244,7 +253,9 @@ function attachFallback(img, id) {
 }
 
 let popupTimer = null;
-function showWordPopup(words, chain) {
+// pauseChain: 回答による成立表示のときだけ連鎖猶予を止める
+// (「かんせいした なまえ」からの確認表示では止めない)
+function showWordPopup(words, chain, pauseChain) {
   const box = document.getElementById('word-popup-box');
   box.innerHTML = '';
   if (chain >= 2) {
@@ -274,7 +285,7 @@ function showWordPopup(words, chain) {
     }
     box.appendChild(entry);
   }
-  popupVisible = true; // 表示中は連鎖猶予のカウント停止
+  popupVisible = !!pauseChain; // 回答による表示中は連鎖猶予のカウント停止
   document.getElementById('word-popup').classList.remove('hidden');
   clearTimeout(popupTimer);
   popupTimer = setTimeout(hideWordPopup, 5000);
@@ -297,6 +308,7 @@ function renderAll() {
     if (ch) {
       el.classList.add('filled');
       if (givenKeys.has(key)) el.classList.add('given');
+      if (lockedKeys.has(key)) el.classList.add('locked');
       if (bad.has(key)) el.classList.add('invalid');
       // 開始マスと同じ並びなら「終わり」に指定できる印
       if (placing && startKey && key !== startKey && segmentBetween(startKey, key)) el.classList.add('aligned');
@@ -345,7 +357,7 @@ function renderAll() {
   }
 
   scoreEl.textContent = score;
-  doneEl.textContent = scoredRuns.size + '/' + WORD_COUNT;
+  doneEl.textContent = scoredRuns.size + '/' + wordCount;
   updateTimerDisplay();
   updateChainDisplay();
 }
@@ -401,6 +413,8 @@ function placeAt(key, ch) {
     const s = runString(i);
     if (s !== null && nameSet.has(s)) {
       scoredRuns.add(i);
+      // 正解した並びのマスはロックして操作不能にする
+      for (const [r, c] of puzzle.runs[i].cells) lockedKeys.add(r + ',' + c);
       completed.push({ i, name: s });
     }
   }
@@ -422,7 +436,7 @@ function doPlacements(keys) {
   if (placedKeys.length === 0) { renderAll(); return; }
 
   if (words.length > 0) {
-    // 10秒いないの回答は連鎖。1回でまとめて成立したぶんも連鎖として数える
+    // 猶予いないの回答は連鎖。1回でまとめて成立したぶんも連鎖として数える
     for (const w of words) {
       chainCount++;
       maxChainSeen = Math.max(maxChainSeen, chainCount);
@@ -430,10 +444,13 @@ function doPlacements(keys) {
       foundLog.push(w.name);
       const li = document.createElement('li');
       li.innerHTML = `<span class="no">No.${String(nameToId.get(w.name)).padStart(4, '0')}</span>${w.name}`;
+      li.title = 'クリックで図鑑を見る';
+      // 「かんせいした なまえ」から画像と説明文を確認できる(連鎖猶予は止めない)
+      li.addEventListener('click', () => showWordPopup([{ name: w.name }], 0, false));
       logEl.prepend(li);
     }
     chainRemaining = CHAIN_WINDOW;
-    showWordPopup(words, chainCount);
+    showWordPopup(words, chainCount, true);
   }
 
   renderAll();
@@ -457,7 +474,8 @@ function onCellClick(key) {
       if (seg) { doPlacements(seg); return; }
     }
     startKey = null;
-    if (givenKeys.has(key)) { renderAll(); return; }
+    // 最初からある文字と、正解した並びのマスは操作不能
+    if (givenKeys.has(key) || lockedKeys.has(key)) { renderAll(); return; }
     // 自分で置いた文字は取り外してパレットに戻せる
     const ch = board.get(key);
     board.delete(key);
@@ -509,7 +527,7 @@ function checkClear() {
   renderAll();
   setTimeout(() => {
     showResult('パズルかんせい！',
-      `10この名前をぜんぶ完成！\nのこりじかん ${formatTime(timeLeft)}\nさいだい ${maxChainSeen}連鎖`);
+      `${wordCount}この名前をぜんぶ完成！\nのこりじかん ${formatTime(timeLeft)}\nさいだい ${maxChainSeen}連鎖`);
   }, 2800);
 }
 
@@ -531,12 +549,12 @@ function timeUp() {
   hideWordPopup();
   revealAnswer();
   showResult('じかんぎれ…',
-    `かんせい ${scoredRuns.size}/${WORD_COUNT}語　さいだい ${maxChainSeen}連鎖\n答えられなかったところは赤く表示しています。\n「盤面を見る」で答えを確認できます。`);
+    `かんせい ${scoredRuns.size}/${wordCount}語　さいだい ${maxChainSeen}連鎖\n答えられなかったところは赤く表示しています。\n「盤面を見る」で答えを確認できます。`);
 }
 
 // 制限時間と連鎖猶予のタイマー(0.1秒きざみ)
 setInterval(() => {
-  if (finished) return;
+  if (!started || finished) return;
   timeLeft -= 0.1;
   updateTimerDisplay();
   if (timeLeft <= 0) { timeUp(); return; }
@@ -552,7 +570,7 @@ setInterval(() => {
 
 // --- ボタン類 ---
 document.getElementById('giveup-btn').addEventListener('click', () => {
-  if (finished) return;
+  if (!started || finished) return;
   finished = true;
   hideWordPopup();
   revealAnswer();
@@ -560,23 +578,14 @@ document.getElementById('giveup-btn').addEventListener('click', () => {
 });
 
 document.getElementById('queue-clear-btn').addEventListener('click', () => {
+  if (!started) return;
   queue = [];
   selectedTile = null;
   startKey = null;
   renderAll();
 });
 
-document.getElementById('new-btn').addEventListener('click', init);
-// 新しい問題は「つぎの問題へ」を押したときにだけ生成する
-document.getElementById('result-restart-btn').addEventListener('click', () => {
-  document.getElementById('result-modal').classList.add('hidden');
-  init();
-});
-// モーダルをとじて盤面(答え)を確認できる
-document.getElementById('result-close-btn').addEventListener('click', () => {
-  document.getElementById('result-modal').classList.add('hidden');
-});
-
+// --- 開始画面 ---
 const genSelect = document.getElementById('gen-select');
 for (let g = 1; g <= GEN_MAX.length; g++) {
   const opt = document.createElement('option');
@@ -586,16 +595,51 @@ for (let g = 1; g <= GEN_MAX.length; g++) {
     : `第${g}世代まで（〜No.${GEN_MAX[g - 1]}）`;
   genSelect.appendChild(opt);
 }
-
 const savedGen = parseInt(localStorage.getItem('kanatsunagi-gen'), 10);
-const initialGen = (savedGen >= 1 && savedGen <= GEN_MAX.length) ? savedGen : GEN_MAX.length;
-genSelect.value = initialGen;
+genSelect.value = (savedGen >= 1 && savedGen <= GEN_MAX.length) ? savedGen : GEN_MAX.length;
 
-genSelect.addEventListener('change', () => {
+const diffSelect = document.getElementById('diff-select');
+DIFFS.forEach((d, i) => {
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = d.label;
+  diffSelect.appendChild(opt);
+});
+const savedDiff = parseInt(localStorage.getItem('kanatsunagi-diff'), 10);
+diffSelect.value = (savedDiff >= 0 && savedDiff < DIFFS.length) ? savedDiff : 0;
+
+function showStartScreen() {
+  // 途中でひらいたときだけ「もどる」を出す
+  document.getElementById('start-back-btn').classList.toggle('hidden', !started);
+  document.getElementById('start-modal').classList.remove('hidden');
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
   const gen = parseInt(genSelect.value, 10);
+  const diff = parseInt(diffSelect.value, 10);
   localStorage.setItem('kanatsunagi-gen', gen);
+  localStorage.setItem('kanatsunagi-diff', diff);
   setGeneration(gen);
-  init(); // 辞書が変わるので新しい問題を出題
+  wordCount = DIFFS[diff].words;
+  timeLimit = DIFFS[diff].time;
+  document.getElementById('start-modal').classList.add('hidden');
+  started = true;
+  init();
+});
+
+document.getElementById('start-back-btn').addEventListener('click', () => {
+  document.getElementById('start-modal').classList.add('hidden');
+});
+
+document.getElementById('new-btn').addEventListener('click', showStartScreen);
+// 「つぎの問題へ」で開始画面にもどる(新しい問題はゲーム開始を押したときに生成)
+document.getElementById('result-restart-btn').addEventListener('click', () => {
+  document.getElementById('result-modal').classList.add('hidden');
+  showStartScreen();
+});
+// モーダルをとじて盤面(答え)を確認できる
+document.getElementById('result-close-btn').addEventListener('click', () => {
+  document.getElementById('result-modal').classList.add('hidden');
 });
 
 document.getElementById('help-btn').addEventListener('click', () => {
@@ -609,5 +653,5 @@ document.querySelector('#hint-modal .close-btn').addEventListener('click', () =>
 });
 document.getElementById('word-popup').addEventListener('click', hideWordPopup);
 
-setGeneration(initialGen);
-init();
+// 起動時はゲームを始めず開始画面を表示する
+showStartScreen();

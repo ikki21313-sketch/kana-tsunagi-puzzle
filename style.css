@@ -101,6 +101,14 @@ main { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
   color: #8c2520;
 }
 
+/* 正解した並びのマス(ロック・操作不能) */
+.cell.locked {
+  background: #e3efd9;
+  border-color: #b3cfa2;
+  color: #4a6b3e;
+  cursor: default;
+}
+
 /* 答えられなかったマス(答え表示時に強調) */
 .cell.missed {
   background: #ffd9cf;
@@ -317,25 +325,6 @@ main { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
 
 #controls { display: flex; flex-direction: column; gap: 6px; }
 
-#gen-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13px;
-  color: #8a7d63;
-}
-
-#gen-select {
-  font-family: inherit;
-  font-size: 14px;
-  padding: 6px 8px;
-  border: 1px solid var(--tile-border);
-  border-radius: 8px;
-  background: var(--tile);
-  color: var(--ink);
-  flex: 1;
-}
 
 button {
   font-family: inherit;
@@ -363,7 +352,8 @@ button:disabled { background: #b8b0a0; cursor: default; }
 #log-area h2 { font-size: 14px; margin-bottom: 8px; color: #8a7d63; }
 
 #log { list-style: none; }
-#log li { font-size: 15px; padding: 3px 0; border-bottom: 1px dashed var(--cell-border); }
+#log li { font-size: 15px; padding: 3px 0; border-bottom: 1px dashed var(--cell-border); cursor: pointer; }
+#log li:hover { background: #fdf7e9; }
 #log li .no { color: #a09274; font-size: 12px; margin-right: 6px; }
 #log li .pts { color: var(--accent); font-weight: bold; float: right; }
 
@@ -395,6 +385,35 @@ button:disabled { background: #b8b0a0; cursor: default; }
 .modal-box li { margin-bottom: 6px; font-size: 14px; line-height: 1.5; }
 .modal-box button { width: 100%; }
 .modal-box button.secondary { background: #b8b0a0; margin-bottom: 8px; }
+
+/* 開始画面 */
+.start-desc { font-size: 14px; line-height: 1.6; margin-bottom: 14px; }
+
+.start-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: #8a7d63;
+  margin-bottom: 10px;
+}
+
+.start-label select {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--tile-border);
+  border-radius: 8px;
+  background: var(--tile);
+  color: var(--ink);
+  flex: 1;
+  max-width: 240px;
+}
+
+#start-btn { margin-top: 6px; background: var(--accent); font-size: 16px; padding: 10px; }
+#start-back-btn { margin-top: 8px; margin-bottom: 0; }
+#start-back-btn.hidden { display: none; }
 
 .hint-demo { background: var(--hint-strong); padding: 0 6px; border-radius: 4px; }
 
