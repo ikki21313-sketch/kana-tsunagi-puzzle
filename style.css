@@ -381,6 +381,14 @@ button:disabled { background: #b8b0a0; cursor: default; }
 }
 
 .modal-box h2 { margin-bottom: 12px; }
+.modal-box h3 {
+  font-size: 14px;
+  color: var(--accent);
+  margin: 14px 0 6px;
+  padding-left: 8px;
+  border-left: 3px solid var(--accent);
+}
+.modal-box p { font-size: 14px; line-height: 1.7; margin-bottom: 8px; }
 .modal-box ul { padding-left: 20px; margin-bottom: 14px; }
 .modal-box li { margin-bottom: 6px; font-size: 14px; line-height: 1.5; }
 .modal-box button { width: 100%; }
