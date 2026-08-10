@@ -205,11 +205,13 @@ function onSlotClick() {
 }
 
 // --- ヒント ---
-// hints.js のエントリから説明テキストを作る
-function hintText(id) {
+// hints.js のエントリから説明テキストを作る。
+// maskName を渡すと、説明文中のそのポケモン自身の名前を伏せ字にする(ヒント用)
+function hintText(id, maskName) {
   const hint = POKEMON_HINTS[id];
   if (!hint) return null;
-  const [text, , kind] = hint;
+  let [text, , kind] = hint;
+  if (maskName) text = text.split(maskName).join('〇'.repeat(maskName.length));
   return kind === 0 ? `「${text}」`
     : kind === 1 ? `ぶんるい：${text}`
     : `タイプ：${text}`;
@@ -224,7 +226,7 @@ function showHintFor(key) {
     const div = document.createElement('div');
     div.className = 'hint-run';
     div.innerHTML = `<h3>${run.dir === 'H' ? 'ヨコ' : 'タテ'} ${name.length}文字</h3>`
-      + `<p class="hint-text">${hintText(nameToId.get(name)) || 'ヒントなし'}</p>`;
+      + `<p class="hint-text">${hintText(nameToId.get(name), name) || 'ヒントなし'}</p>`;
     body.appendChild(div);
   }
   document.getElementById('hint-modal').classList.remove('hidden');
